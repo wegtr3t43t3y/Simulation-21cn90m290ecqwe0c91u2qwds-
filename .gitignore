@@ -1,0 +1,48 @@
+# LabVerse 3D Simulator
+
+An immersive chemistry lab simulation featuring a 3D lab environment, interactive chemical controls, and animated reaction effects. This version upgrades the original concept into a realistic WebGL experience with Three.js and is prepared for static deployment.
+
+## Features
+
+- Full 3D lab environment with floor, cabinets, reactor vessel, pipes, and instrumentation
+- Interactive control sliders for temperature, agitation, and catalyst levels
+- Multiple reaction presets: synthesis, crystallization, combustion, and catalytic flow
+- Animated particle-based chemical reaction simulation in real time
+- Modern HUD and lab status panels
+- Ready for Vite-based local development and GitHub Pages-style deployment
+
+## Run locally
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start the dev server:
+
+```bash
+npm run dev
+```
+
+3. Open the local URL shown by Vite in the browser.
+
+## Production build
+
+```bash
+npm run build
+```
+
+The generated files live in the `dist/` folder and can be served through any static host such as GitHub Pages, Netlify, or Vercel.
+
+## GitHub Pages note
+
+This project includes a Vite config with `base: './'` to work well with static hosting environments. When deployed from a repository, the app can be served using a Pages workflow or static hosting service.
+
+## Files
+
+- `index.html` — app shell and dashboard layout
+- `styles.css` — styling and HUD interface
+- `app.js` — Three.js scene, reaction logic, and interactivity
+- `vite.config.js` — static deploy configuration
+- `package.json` — project scripts and dependencies
