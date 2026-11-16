@@ -1,237 +1,200 @@
-const labScene = document.getElementById('labScene');
-const tempRange = document.getElementById('tempRange');
-const stirRange = document.getElementById('stirRange');
-const catalystRange = document.getElementById('catalystRange');
-const pressureValue = document.getElementById('pressureValue');
-const yieldValue = document.getElementById('yieldValue');
-const reactionTitle = document.getElementById('reactionTitle');
-const reactionDesc = document.getElementById('reactionDesc');
-const toggleSceneBtn = document.getElementById('toggleScene');
-const canvas = document.getElementById('reactionCanvas');
-const ctx = canvas.getContext('2d');
-const toolCards = document.querySelectorAll('.tool-card');
-const reactionButtons = document.querySelectorAll('.reaction-btn');
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-const presets = {
-  synthesis: {
-    name: 'Synthesis',
-    desc: 'Molecular assembly is proceeding with high-energy transfer and stable output.',
-    temperature: 72,
-    agitation: 68,
-    catalyst: 46,
-    colors: ['#64d6ff', '#7ef0c5', '#8a7cff'],
-    glow: 'rgba(100,214,255,0.55)'
-  },
-  crystal: {
-    name: 'Crystallization',
-    desc: 'Particle ordering is accelerating as ordered lattices nucleate and expand.',
-    temperature: 48,
-    agitation: 42,
-    catalyst: 58,
-    colors: ['#75e3ff', '#d9d0ff', '#9de9cd'],
-    glow: 'rgba(117,227,255,0.5)'
-  },
-  combustion: {
-    name: 'Combustion',
-    desc: 'Rapid oxidation is producing luminous, high-velocity reaction fronts.',
-    temperature: 89,
-    agitation: 74,
-    catalyst: 34,
-    colors: ['#ffbf69', '#ff7d5c', '#ff6d72'],
-    glow: 'rgba(255,166,92,0.5)'
-  },
-  catalytic: {
-    name: 'Catalytic',
-    desc: 'The catalyst is lowering activation energy while maintaining sustained orbital flow.',
-    temperature: 64,
-    agitation: 58,
-    catalyst: 82,
-    colors: ['#7ef0c5', '#64d6ff', '#c7a9ff'],
-    glow: 'rgba(126,240,197,0.5)'
-  }
+const $ = (selector) => document.querySelector(selector);
+const root = $('#scene-root');
+const ranges = {
+  temperature: $('#tempRange'),
+  agitation: $('#stirRange'),
+  catalyst: $('#catalystRange'),
 };
+const presets = {
+  synthesis: { name: 'Synthesis', desc: 'Molecular assembly is proceeding with high-energy transfer and stable output.', values: [72, 68, 46], colors: ['#64d6ff', '#7ef0c5', '#8a7cff'] },
+  crystal: { name: 'Crystallization', desc: 'Particle ordering is accelerating as ordered lattices nucleate and expand.', values: [48, 42, 58], colors: ['#75e3ff', '#d9d0ff', '#9de9cd'] },
+  combustion: { name: 'Combustion', desc: 'Rapid oxidation is producing luminous, high-velocity reaction fronts.', values: [89, 74, 34], colors: ['#ffbf69', '#ff7d5c', '#ff6d72'] },
+  catalytic: { name: 'Catalytic', desc: 'The catalyst is lowering activation energy while maintaining sustained orbital flow.', values: [64, 58, 82], colors: ['#7ef0c5', '#64d6ff', '#d4b8ff'] },
+};
+let activePreset = 'synthesis';
+let paused = false;
+let scene, camera, renderer, controls, particles, fluid, fluidGlow;
 
-let currentPreset = 'synthesis';
-let animationPaused = false;
-let particles = [];
-let pointerX = 0;
-let pointerY = 0;
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color('#06151e');
+  scene.fog = new THREE.Fog('#06151e', 20, 42);
+  camera = new THREE.PerspectiveCamera(45, root.clientWidth / root.clientHeight, 0.1, 100);
+  camera.position.set(9, 7, 11);
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(root.clientWidth, root.clientHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  root.appendChild(renderer.domElement);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.minDistance = 7;
+  controls.maxDistance = 18;
+  controls.maxPolarAngle = Math.PI * 0.48;
+  controls.target.set(0, 2.2, 0);
 
-function setPreset(presetKey) {
-  const preset = presets[presetKey];
-  if (!preset) return;
+  scene.add(new THREE.HemisphereLight(0xbcd9ff, 0x10212a, 2));
+  const key = new THREE.DirectionalLight(0xc7eeff, 2.5);
+  key.position.set(6, 11, 5);
+  scene.add(key);
+  const rim = new THREE.PointLight(0x64d6ff, 35, 22);
+  rim.position.set(-5, 6, 2);
+  scene.add(rim);
 
-  currentPreset = presetKey;
-  tempRange.value = preset.temperature;
-  stirRange.value = preset.agitation;
-  catalystRange.value = preset.catalyst;
+  const standard = (color, metalness = 0.25, roughness = 0.7) => new THREE.MeshStandardMaterial({ color, metalness, roughness });
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(12, 12, 0.8, 64), standard('#102c39', 0.35, 0.8));
+  floor.position.y = -0.65;
+  scene.add(floor);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(11, 0.08, 10, 100), new THREE.MeshBasicMaterial({ color: '#64d6ff', transparent: true, opacity: 0.35 }));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = -0.18;
+  scene.add(ring);
 
-  reactionTitle.textContent = preset.name;
-  reactionDesc.textContent = preset.desc;
+  const wallMaterial = standard('#0b202b', 0.15, 0.95);
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(18, 9, 0.4), wallMaterial);
+  backWall.position.set(0, 3.8, -8);
+  scene.add(backWall);
+  const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 9, 16), wallMaterial);
+  sideWall.position.set(-8.8, 3.8, 0);
+  scene.add(sideWall, sideWall.clone());
+  scene.children[scene.children.length - 1].position.x = 8.8;
 
-  document.documentElement.style.setProperty('--reaction-color-1', preset.colors[0]);
-  document.documentElement.style.setProperty('--reaction-color-2', preset.colors[1]);
-  document.documentElement.style.setProperty('--reaction-color-3', preset.colors[2]);
-  document.documentElement.style.setProperty('--ambient-glow', preset.glow);
+  const benchMat = standard('#294653', 0.35, 0.75);
+  for (const x of [-4.3, 4.3]) {
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.35, 1.5), benchMat);
+    bench.position.set(x, 1.25, 4.3);
+    scene.add(bench);
+    const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.8, 1.4), standard('#1b3341', 0.4));
+    cabinet.position.set(x, 0.15, 4.3);
+    scene.add(cabinet);
+    const monitor = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.85, 0.16), new THREE.MeshStandardMaterial({ color: '#102d3a', emissive: '#1686b3', emissiveIntensity: 1.2 }));
+    monitor.position.set(x, 2.1, 4.3);
+    scene.add(monitor);
+  }
 
-  reactionButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.preset === presetKey);
-  });
+  const shelfMat = standard('#304b5a', 0.45);
+  for (const x of [-4.1, 4.1]) {
+    for (const y of [2.4, 3.25]) {
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 0.75), shelfMat);
+      shelf.position.set(x, y, -2.3);
+      scene.add(shelf);
+    }
+  }
 
-  updateMetrics();
-  ensureParticleState();
+  const vessel = new THREE.Group();
+  scene.add(vessel);
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 2.6, 48, 1, true), new THREE.MeshPhysicalMaterial({ color: '#a7ddff', transmission: 0.6, transparent: true, opacity: 0.3, roughness: 0.18, side: THREE.DoubleSide, thickness: 0.5 }));
+  glass.position.y = 2.4;
+  vessel.add(glass);
+  fluid = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1.5, 48), new THREE.MeshStandardMaterial({ color: '#64d6ff', emissive: '#64d6ff', emissiveIntensity: 0.8, transparent: true, opacity: 0.86, roughness: 0.2 }));
+  fluid.position.y = 1.75;
+  vessel.add(fluid);
+  fluidGlow = new THREE.PointLight('#64d6ff', 22, 8);
+  fluidGlow.position.set(0, 2.1, 0);
+  vessel.add(fluidGlow);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.55, 32), standard('#506a78', 0.6, 0.4));
+  base.position.y = 0.55;
+  vessel.add(base);
+  for (const x of [-2.2, 2.2]) {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.7, 16), standard('#426273', 0.65, 0.3));
+    pipe.rotation.z = Math.PI / 2.1;
+    pipe.position.set(x, 2.1, x < 0 ? 0.4 : -0.4);
+    scene.add(pipe);
+  }
+
+  const count = 500;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 0.35 + Math.random() * 1.05;
+    positions[i * 3] = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = 1.2 + Math.random() * 1.1;
+    positions[i * 3 + 2] = Math.sin(angle) * radius;
+    const color = new THREE.Color(presets.synthesis.colors[i % 3]);
+    colors.set([color.r, color.g, color.b], i * 3);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  particles = new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.075, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
+  scene.add(particles);
 }
 
 function updateMetrics() {
-  const temp = Number(tempRange.value);
-  const stir = Number(stirRange.value);
-  const catalyst = Number(catalystRange.value);
-
-  const pressure = (temp / 42 + stir / 76 + catalyst / 68) / 1.5;
-  const yield = (temp * 0.4 + stir * 0.28 + catalyst * 0.32) / 1.8;
-
-  pressureValue.textContent = `${pressure.toFixed(1)} bar`;
-  yieldValue.textContent = `${yield.toFixed(1)}%`;
-
-  const liquid = document.querySelector('.liquid-surface');
-  if (liquid) {
-    liquid.style.filter = `hue-rotate(${temp * 1.4}deg) saturate(${1 + catalyst / 100})`;
-    liquid.style.opacity = `${0.6 + catalyst / 160}`;
+  const [temp, agitation, catalyst] = [Number(ranges.temperature.value), Number(ranges.agitation.value), Number(ranges.catalyst.value)];
+  const pressure = (temp / 42 + agitation / 76 + catalyst / 68) / 1.5;
+  const yieldPercent = (temp * 0.4 + agitation * 0.28 + catalyst * 0.32) / 1.8;
+  $('#pressureValue').textContent = `${pressure.toFixed(1)} bar`;
+  $('#yieldValue').textContent = `${yieldPercent.toFixed(1)}%`;
+  if (fluid) {
+    const hue = 0.55 + (temp / 100) * 0.28 + (catalyst / 100) * 0.12;
+    const color = new THREE.Color().setHSL(hue, 0.78, 0.6);
+    fluid.material.color.copy(color);
+    fluid.material.emissive.copy(color);
+    fluidGlow.color.copy(color);
+    fluidGlow.intensity = 12 + catalyst * 0.18;
   }
 }
 
-function ensureParticleState() {
-  const base = presets[currentPreset];
-  particles = [];
-  const count = 68 + Math.round(base.temperature / 2);
-
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random(),
-      y: Math.random(),
-      vx: (Math.random() - 0.5) * 0.6,
-      vy: (Math.random() - 0.5) * 0.8,
-      radius: 1.8 + Math.random() * 4,
-      life: 1,
-      color: base.colors[Math.floor(Math.random() * base.colors.length)]
-    });
+function setPreset(key) {
+  const preset = presets[key];
+  if (!preset) return;
+  activePreset = key;
+  [ranges.temperature.value, ranges.agitation.value, ranges.catalyst.value] = preset.values;
+  $('#reactionTitle').textContent = preset.name;
+  $('#reactionDesc').textContent = preset.desc;
+  document.querySelectorAll('.reaction-btn').forEach((button) => button.classList.toggle('active', button.dataset.preset === key));
+  const colors = particles.geometry.attributes.color.array;
+  for (let i = 0; i < colors.length / 3; i++) {
+    const c = new THREE.Color(preset.colors[i % preset.colors.length]);
+    colors.set([c.r, c.g, c.b], i * 3);
   }
-}
-
-function resizeCanvas() {
-  const rect = canvas.getBoundingClientRect();
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = rect.width * ratio;
-  canvas.height = rect.height * ratio;
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-}
-
-function drawReaction() {
-  if (animationPaused) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const w = rect.width;
-  const h = rect.height;
-  const temp = Number(tempRange.value);
-  const stir = Number(stirRange.value);
-  const catalyst = Number(catalystRange.value);
-  const base = presets[currentPreset];
-
-  ctx.clearRect(0, 0, w, h);
-
-  const glow = ctx.createRadialGradient(w * 0.52, h * 0.5, 10, w * 0.52, h * 0.5, w * 0.52);
-  glow.addColorStop(0, base.colors[0] + '66');
-  glow.addColorStop(0.35, base.colors[1] + '44');
-  glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, w, h);
-
-  const centerX = w * 0.52;
-  const centerY = h * 0.66;
-
-  for (let i = 0; i < particles.length; i++) {
-    const p = particles[i];
-
-    p.x += p.vx + ((stir - 50) / 2000) + Math.sin(i + performance.now() * 0.001) * 0.02;
-    p.y += p.vy + ((temp - 50) / 3000) - (catalyst / 4000);
-
-    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) {
-      p.x = 0.2 + Math.random() * 0.6;
-      p.y = 0.2 + Math.random() * 0.6;
-    }
-
-    const px = centerX + (p.x - 0.5) * w * 0.8;
-    const py = centerY + (p.y - 0.5) * h * 0.8;
-
-    ctx.beginPath();
-    ctx.fillStyle = p.color;
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = p.color;
-    ctx.arc(px, py, p.radius + (temp / 90), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  const wave = 0.5 + Math.sin(performance.now() * 0.003) * 0.08;
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath();
-  ctx.ellipse(centerX, centerY + 44, 88, 34 * wave, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, 92, 0.35 * Math.PI, 1.65 * Math.PI);
-  ctx.stroke();
+  particles.geometry.attributes.color.needsUpdate = true;
+  updateMetrics();
 }
 
 function animate() {
-  if (!animationPaused) {
-    drawReaction();
+  requestAnimationFrame(animate);
+  if (!paused && particles) {
+    const positions = particles.geometry.attributes.position.array;
+    const speed = 0.0007 + Number(ranges.agitation.value) * 0.000012;
+    const heat = Number(ranges.temperature.value);
+    for (let i = 0; i < positions.length; i += 3) {
+      const angle = performance.now() * speed + i * 0.12;
+      positions[i] += Math.cos(angle) * 0.002;
+      positions[i + 2] += Math.sin(angle) * 0.002;
+      positions[i + 1] += Math.sin(angle * 1.4) * 0.0015 + (heat - 50) * 0.000001;
+      if (positions[i + 1] > 2.7) positions[i + 1] = 1.25;
+      if (positions[i + 1] < 1.2) positions[i + 1] = 2.65;
+    }
+    particles.geometry.attributes.position.needsUpdate = true;
+    particles.rotation.y += speed * 1.2;
+    fluid.scale.y = 1 + Math.sin(performance.now() * 0.003) * 0.08;
   }
-  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
 }
 
-function setupInteractions() {
-  tempRange.addEventListener('input', updateMetrics);
-  stirRange.addEventListener('input', updateMetrics);
-  catalystRange.addEventListener('input', updateMetrics);
+for (const range of Object.values(ranges)) range.addEventListener('input', updateMetrics);
+document.querySelectorAll('.reaction-btn').forEach((button) => button.addEventListener('click', () => setPreset(button.dataset.preset)));
+document.querySelectorAll('.tool-card').forEach((card) => card.addEventListener('click', () => {
+  document.querySelectorAll('.tool-card').forEach((item) => item.classList.toggle('active', item === card));
+}));
+$('#toggleScene').addEventListener('click', (event) => {
+  paused = !paused;
+  event.currentTarget.textContent = paused ? 'Resume' : 'Pause';
+});
+window.addEventListener('resize', () => {
+  camera.aspect = root.clientWidth / root.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(root.clientWidth, root.clientHeight);
+});
 
-  toolCards.forEach((card) => {
-    card.addEventListener('click', () => {
-      toolCards.forEach((item) => item.classList.toggle('active', item === card));
-    });
-  });
-
-  reactionButtons.forEach((button) => {
-    button.addEventListener('click', () => setPreset(button.dataset.preset));
-  });
-
-  toggleSceneBtn.addEventListener('click', () => {
-    animationPaused = !animationPaused;
-    toggleSceneBtn.textContent = animationPaused ? 'Resume' : 'Pause';
-    if (!animationPaused) drawReaction();
-  });
-
-  window.addEventListener('pointermove', (event) => {
-    const { innerWidth, innerHeight } = window;
-    const normalizedX = (event.clientX / innerWidth - 0.5) * 2;
-    const normalizedY = (event.clientY / innerHeight - 0.5) * 2;
-
-    pointerX = normalizedX * 10;
-    pointerY = normalizedY * 8;
-    labScene.style.setProperty('--rotate-x', `${-12 + pointerY * -0.8}deg`);
-    labScene.style.setProperty('--rotate-y', `${18 + pointerX}deg`);
-  });
-
-  window.addEventListener('resize', resizeCanvas);
-}
-
-function init() {
-  resizeCanvas();
-  setPreset(currentPreset);
-  setupInteractions();
-  requestAnimationFrame(animate);
-}
-
-init();
+initScene();
+setPreset(activePreset);
+animate();
