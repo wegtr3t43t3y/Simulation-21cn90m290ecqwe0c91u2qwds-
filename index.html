@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LabVerse 3D Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">L</div>
+          <div>
+            <h1>LabVerse 3D</h1>
+            <p>Virtual synthesis bay</p>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="section-label">Lab tools</div>
+          <div class="tool-grid">
+            <button class="tool-card active" data-tool="reactor">
+              <span class="tool-icon">⚗</span>
+              <span>Reactor</span>
+            </button>
+            <button class="tool-card" data-tool="furnace">
+              <span class="tool-icon">🔥</span>
+              <span>Furnace</span>
+            </button>
+            <button class="tool-card" data-tool="microscope">
+              <span class="tool-icon">🔬</span>
+              <span>Microscope</span>
+            </button>
+            <button class="tool-card" data-tool="pipette">
+              <span class="tool-icon">🧪</span>
+              <span>Pipette</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <div class="section-label">Reaction presets</div>
+          <div class="reaction-list">
+            <button class="reaction-btn active" data-preset="synthesis">Synthesis</button>
+            <button class="reaction-btn" data-preset="crystal">Crystallization</button>
+            <button class="reaction-btn" data-preset="combustion">Combustion</button>
+            <button class="reaction-btn" data-preset="catalytic">Catalytic</button>
+          </div>
+        </div>
+
+        <div class="panel-block controls">
+          <div class="section-label">Control system</div>
+          <label>
+            <span>Temperature</span>
+            <input id="tempRange" type="range" min="0" max="100" value="72" />
+          </label>
+          <label>
+            <span>Agitation</span>
+            <input id="stirRange" type="range" min="0" max="100" value="68" />
+          </label>
+          <label>
+            <span>Catalyst</span>
+            <input id="catalystRange" type="range" min="0" max="100" value="46" />
+          </label>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div class="status-block">
+            <div class="dot"></div>
+            <span>Simulation live</span>
+          </div>
+          <div class="metric-row">
+            <div class="metric">
+              <small>Pressure</small>
+              <strong id="pressureValue">1.8 bar</strong>
+            </div>
+            <div class="metric">
+              <small>Yield</small>
+              <strong id="yieldValue">94.6%</strong>
+            </div>
+          </div>
+          <button id="toggleScene" class="toggle-btn">Pause</button>
+        </header>
+
+        <section class="scene-wrap">
+          <div id="labScene" class="lab-scene" aria-label="3D chemical lab environment">
+            <div class="room-glow"></div>
+            <div class="bench bench-left"></div>
+            <div class="bench bench-right"></div>
+            <div class="cabinet cabinet-a"></div>
+            <div class="cabinet cabinet-b"></div>
+            <div class="shelf shelf-a"></div>
+            <div class="shelf shelf-b"></div>
+            <div class="monitor monitor-a"></div>
+            <div class="monitor monitor-b"></div>
+
+            <div class="hood">
+              <div class="hood-frame"></div>
+              <div class="hood-glass"></div>
+              <div class="reaction-vessel">
+                <div class="liquid-surface"></div>
+                <canvas id="reactionCanvas"></canvas>
+              </div>
+              <div class="pipe pipe-a"></div>
+              <div class="pipe pipe-b"></div>
+            </div>
+
+            <div class="instrument instrument-a"></div>
+            <div class="instrument instrument-b"></div>
+            <div class="beaker beaker-a"></div>
+            <div class="beaker beaker-b"></div>
+            <div class="tube tube-a"></div>
+            <div class="tube tube-b"></div>
+
+            <div class="info-card">
+              <span class="card-label">Current reaction</span>
+              <h2 id="reactionTitle">Synthesis</h2>
+              <p id="reactionDesc">Molecular assembly is proceeding with high-energy transfer and stable output.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
