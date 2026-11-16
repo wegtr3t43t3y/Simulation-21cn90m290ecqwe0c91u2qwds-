@@ -1,17 +1,7 @@
-{
-  "name": "labverse-3d",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
-  },
-  "dependencies": {
-    "three": "^0.166.1"
-  },
-  "devDependencies": {
-    "vite": "^5.4.10"
-  }
-}
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  base: '/Simulation-21cn90m290ecqwe0c91u2qwds-/',
+  server: { host: '0.0.0.0', port: 3000 },
+  preview: { host: '0.0.0.0', port: 4173 },
+});
